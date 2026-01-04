@@ -1,0 +1,42 @@
+# CLUE 1: Here lies the shadow of the octopus. Trace the build artifact's journey through the workflow—where does it vanish, and what does it leave behind?
+# The first tentacle lies not in what is deployed, but in what is left behind. Seek the shadow of the build artifact.
+
+name: Deploy to Cloudflare Pages with Wrangler
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: npm run build
+
+      # MYSTERY NOTE: The octopus was here, but something is missing...
+      # What happens to the build artifact? Where does it go?
+      # Check the scheme file for the next breadcrumb...
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: 'deep-tree-echo'
+          directory: dist
+          # Note: The octopus hides in the shadows of configuration...
