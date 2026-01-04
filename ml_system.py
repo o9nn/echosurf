@@ -12,6 +12,12 @@ from typing import Dict, List, Tuple, Optional
 import time
 
 class MLSystem:
+    # Configuration constants
+    REFLEX_INPUT_SIZE = 8  # Target + current position + velocity + threat + urgency
+    TACTICAL_INPUT_SIZE = 16  # Complex situation features
+    TACTICAL_ACTION_SIZE = 8  # Number of possible tactical actions
+    TARGET_INFERENCE_MS = 10.0  # Target inference time in milliseconds
+    
     def __init__(self):
         """Initialize the machine learning system"""
         self.logger = logging.getLogger(__name__)
@@ -507,7 +513,7 @@ class MLSystem:
     def _create_reflex_model(self):
         """Create reflex optimization model for lightning-fast gaming responses"""
         model = models.Sequential([
-            layers.Input(shape=(8,)),  # input: target_x, target_y, current_x, current_y, velocity_x, velocity_y, threat_level, urgency
+            layers.Input(shape=(self.REFLEX_INPUT_SIZE,)),  # input: target_x, target_y, current_x, current_y, velocity_x, velocity_y, threat_level, urgency
             layers.Dense(128, activation='relu'),
             layers.Dropout(0.1),  # Minimal dropout for speed
             layers.Dense(64, activation='relu'),
@@ -522,15 +528,27 @@ class MLSystem:
         return model
     
     def _create_tactical_model(self):
-        """Create tactical decision-making model for strategic mastery"""
+        """
+        Create tactical decision-making model for strategic mastery
+        
+        Expected input features (16 total):
+        - threat_level (1)
+        - resource_features (5): health, ammo, armor, items, currency
+        - position_features (3): x, y, z
+        - ally_features (3): num_allies, avg_distance, coordination
+        - enemy_features (3): num_enemies, avg_distance, threat_distribution
+        - objective_feature (1): distance_to_objective
+        
+        Output: 8 action scores for different tactical options
+        """
         model = models.Sequential([
-            layers.Input(shape=(16,)),  # Complex situation features
+            layers.Input(shape=(self.TACTICAL_INPUT_SIZE,)),
             layers.Dense(128, activation='relu'),
             layers.Dropout(0.2),
             layers.Dense(64, activation='relu'),
             layers.Dense(32, activation='relu'),
             layers.Dense(16, activation='relu'),
-            layers.Dense(8)  # Action scores for different tactical options
+            layers.Dense(self.TACTICAL_ACTION_SIZE)  # Action scores
         ])
         model.compile(
             optimizer='adam',

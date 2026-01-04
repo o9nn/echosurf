@@ -269,8 +269,13 @@ class TestMLSystemGaming(unittest.TestCase):
         self.assertIn('average_inference_time_ms', results)
         self.assertIn('recommendations', results)
         
-        # Should be reasonably fast for gaming
-        self.assertLess(results['average_inference_time_ms'], 100)  # Less than 100ms
+        # Should be fast enough for gaming (less than target)
+        # Note: Actual performance depends on hardware; this is a reasonable check
+        self.assertLess(results['average_inference_time_ms'], 50)  # Less than 50ms is acceptable
+        
+        # Log actual performance for information
+        print(f"\n  Actual ML inference time: {results['average_inference_time_ms']:.2f}ms")
+        print(f"  Target: <{self.ml.TARGET_INFERENCE_MS}ms for competitive gaming")
 
 
 class TestGamingTraining(unittest.TestCase):

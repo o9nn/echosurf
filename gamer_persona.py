@@ -98,6 +98,11 @@ class GamerPersona:
     Gamer-Girl Persona with advanced gaming capabilities
     """
     
+    # Configuration constants
+    REFLEX_VARIANCE = 0.05  # Reaction time variance factor
+    LEARNING_RATE = 0.05  # Skill improvement rate
+    OPTIMAL_DISTANCE_3P = 1.0  # Optimal spatial distance for 3P
+    
     def __init__(self, name: str = "Echo-Gamer", reflex_mode: ReflexMode = ReflexMode.LIGHTNING):
         self.logger = logging.getLogger(__name__)
         self.name = name
@@ -411,7 +416,7 @@ class GamerPersona:
         target_time = self.calculate_target_reflex_time()
         
         # Add variance based on reaction time skill
-        variance = (1.0 - self.skills.reaction_time) * 0.05
+        variance = (1.0 - self.skills.reaction_time) * self.REFLEX_VARIANCE
         actual_time = target_time + np.random.normal(0, variance)
         
         # Record reflex
@@ -484,25 +489,21 @@ class GamerPersona:
     
     def _adapt_skills_1p(self, results: Dict[str, Any]):
         """Adapt 1P skills based on training results"""
-        learning_rate = 0.05
-        
         if results.get('accuracy', 0) > 0.8:
-            self.skills.aim_precision = min(1.0, self.skills.aim_precision + learning_rate)
-            self.skills.coordination_1p = min(1.0, self.skills.coordination_1p + learning_rate)
+            self.skills.aim_precision = min(1.0, self.skills.aim_precision + self.LEARNING_RATE)
+            self.skills.coordination_1p = min(1.0, self.skills.coordination_1p + self.LEARNING_RATE)
         
         if results.get('avg_reaction_time', 1.0) < self.calculate_target_reflex_time():
-            self.skills.reaction_time = min(1.0, self.skills.reaction_time + learning_rate)
+            self.skills.reaction_time = min(1.0, self.skills.reaction_time + self.LEARNING_RATE)
     
     def _adapt_skills_3p(self, results: Dict[str, Any]):
         """Adapt 3P skills based on training results"""
-        learning_rate = 0.05
-        
         if results.get('navigation_accuracy', 0) > 0.8:
-            self.skills.spatial_awareness = min(1.0, self.skills.spatial_awareness + learning_rate)
-            self.skills.coordination_3p = min(1.0, self.skills.coordination_3p + learning_rate)
+            self.skills.spatial_awareness = min(1.0, self.skills.spatial_awareness + self.LEARNING_RATE)
+            self.skills.coordination_3p = min(1.0, self.skills.coordination_3p + self.LEARNING_RATE)
         
         if results.get('coordination_score', 0) > 0.85:
-            self.skills.movement_control = min(1.0, self.skills.movement_control + learning_rate)
+            self.skills.movement_control = min(1.0, self.skills.movement_control + self.LEARNING_RATE)
     
     def _update_ue_vectors(self):
         """Update Unreal Engine compatible direction vectors"""
