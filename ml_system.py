@@ -12,6 +12,12 @@ from typing import Dict, List, Tuple, Optional
 import time
 
 class MLSystem:
+    # Configuration constants
+    REFLEX_INPUT_SIZE = 8  # Target + current position + velocity + threat + urgency
+    TACTICAL_INPUT_SIZE = 16  # Complex situation features
+    TACTICAL_ACTION_SIZE = 8  # Number of possible tactical actions
+    TARGET_INFERENCE_MS = 10.0  # Target inference time in milliseconds
+    
     def __init__(self):
         """Initialize the machine learning system"""
         self.logger = logging.getLogger(__name__)
@@ -33,9 +39,15 @@ class MLSystem:
         self.behavior_model = None
         self.pattern_model = None
         self.echo_value_model = None
+        self.reflex_model = None  # New: For lightning-fast gaming reflexes
+        self.tactical_model = None  # New: For strategic decision-making
         
         # Initialize interaction history
         self.interaction_history = []
+        
+        # Gaming-specific performance tracking
+        self.reflex_training_data = []
+        self.tactical_decisions = []
         
         # Load existing models if available
         self._load_models()
@@ -70,8 +82,22 @@ class MLSystem:
                 self.echo_value_model = models.load_model(echo_value_path)
             else:
                 self.echo_value_model = self._create_echo_value_model()
+            
+            # Load or create reflex model (for gaming)
+            reflex_path = self.models_dir / 'reflex_model'
+            if reflex_path.exists():
+                self.reflex_model = models.load_model(reflex_path)
+            else:
+                self.reflex_model = self._create_reflex_model()
+            
+            # Load or create tactical model (for gaming strategy)
+            tactical_path = self.models_dir / 'tactical_model'
+            if tactical_path.exists():
+                self.tactical_model = models.load_model(tactical_path)
+            else:
+                self.tactical_model = self._create_tactical_model()
                 
-            self.logger.info("Successfully loaded ML models")
+            self.logger.info("Successfully loaded ML models including gaming models")
             
         except Exception as e:
             self.logger.error(f"Error loading models: {str(e)}")
@@ -483,3 +509,300 @@ class MLSystem:
         except Exception as e:
             self.logger.error(f"Error predicting echo value: {str(e)}")
             return 0.0
+    
+    def _create_reflex_model(self):
+        """Create reflex optimization model for lightning-fast gaming responses"""
+        model = models.Sequential([
+            layers.Input(shape=(self.REFLEX_INPUT_SIZE,)),  # input: target_x, target_y, current_x, current_y, velocity_x, velocity_y, threat_level, urgency
+            layers.Dense(128, activation='relu'),
+            layers.Dropout(0.1),  # Minimal dropout for speed
+            layers.Dense(64, activation='relu'),
+            layers.Dense(32, activation='relu'),
+            layers.Dense(4)  # output: optimal_x, optimal_y, confidence, reaction_time
+        ])
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+            loss='mse',
+            metrics=['mae']
+        )
+        return model
+    
+    def _create_tactical_model(self):
+        """
+        Create tactical decision-making model for strategic mastery
+        
+        Expected input features (16 total):
+        - threat_level (1)
+        - resource_features (5): health, ammo, armor, items, currency
+        - position_features (3): x, y, z
+        - ally_features (3): num_allies, avg_distance, coordination
+        - enemy_features (3): num_enemies, avg_distance, threat_distribution
+        - objective_feature (1): distance_to_objective
+        
+        Output: 8 action scores for different tactical options
+        """
+        model = models.Sequential([
+            layers.Input(shape=(self.TACTICAL_INPUT_SIZE,)),
+            layers.Dense(128, activation='relu'),
+            layers.Dropout(0.2),
+            layers.Dense(64, activation='relu'),
+            layers.Dense(32, activation='relu'),
+            layers.Dense(16, activation='relu'),
+            layers.Dense(self.TACTICAL_ACTION_SIZE)  # Action scores
+        ])
+        model.compile(
+            optimizer='adam',
+            loss='categorical_crossentropy',
+            metrics=['accuracy']
+        )
+        return model
+    
+    def predict_reflex_response(self, target_position: Tuple[float, float],
+                               current_position: Tuple[float, float],
+                               velocity: Tuple[float, float] = (0, 0),
+                               threat_level: float = 0.5,
+                               urgency: float = 0.8) -> Dict[str, Any]:
+        """
+        Predict optimal reflex response for gaming scenarios
+        
+        Args:
+            target_position: Target coordinates
+            current_position: Current position
+            velocity: Current velocity
+            threat_level: How threatening the situation is (0-1)
+            urgency: How urgent the response needs to be (0-1)
+            
+        Returns:
+            Dict with optimal response and timing
+        """
+        try:
+            # Prepare input features
+            features = np.array([
+                target_position[0], target_position[1],
+                current_position[0], current_position[1],
+                velocity[0], velocity[1],
+                threat_level, urgency
+            ]).reshape(1, -1)
+            
+            # Get prediction
+            prediction = self.reflex_model.predict(features, verbose=0)[0]
+            
+            result = {
+                'optimal_position': (prediction[0], prediction[1]),
+                'confidence': float(prediction[2]),
+                'estimated_reaction_time': float(prediction[3]),
+                'should_execute': prediction[2] > 0.6  # Execute if confidence > 60%
+            }
+            
+            # Record for training
+            self.reflex_training_data.append({
+                'input': features.tolist(),
+                'output': prediction.tolist(),
+                'timestamp': time.time()
+            })
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error predicting reflex response: {str(e)}")
+            return {
+                'optimal_position': target_position,
+                'confidence': 0.0,
+                'estimated_reaction_time': 0.2,
+                'should_execute': False
+            }
+    
+    def predict_tactical_action(self, situation_features: np.ndarray) -> Dict[str, Any]:
+        """
+        Predict best tactical action for strategic gameplay
+        
+        Args:
+            situation_features: Array of 16 features describing the tactical situation
+            
+        Returns:
+            Dict with recommended action and confidence
+        """
+        try:
+            if len(situation_features) != 16:
+                self.logger.error(f"Expected 16 features, got {len(situation_features)}")
+                return {'action_index': 0, 'confidence': 0.0, 'action_scores': []}
+            
+            features = situation_features.reshape(1, -1)
+            
+            # Get prediction
+            prediction = self.tactical_model.predict(features, verbose=0)[0]
+            
+            # Find best action
+            best_action_idx = int(np.argmax(prediction))
+            
+            result = {
+                'action_index': best_action_idx,
+                'confidence': float(prediction[best_action_idx]),
+                'action_scores': prediction.tolist(),
+                'top_3_actions': [int(i) for i in np.argsort(prediction)[-3:][::-1]]
+            }
+            
+            # Record for training
+            self.tactical_decisions.append({
+                'features': features.tolist(),
+                'prediction': prediction.tolist(),
+                'timestamp': time.time()
+            })
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error predicting tactical action: {str(e)}")
+            return {
+                'action_index': 0,
+                'confidence': 0.0,
+                'action_scores': []
+            }
+    
+    def train_reflex_model(self, training_data: List[Dict[str, Any]]) -> bool:
+        """
+        Train reflex model with gaming performance data
+        
+        Args:
+            training_data: List of training examples with inputs and outcomes
+            
+        Returns:
+            Success status
+        """
+        try:
+            if len(training_data) < 100:
+                self.logger.warning("Insufficient training data for reflex model")
+                return False
+            
+            X = []
+            y = []
+            
+            for example in training_data:
+                X.append(example['input'])
+                y.append(example['output'])
+            
+            X = np.array(X)
+            y = np.array(y)
+            
+            # Train with emphasis on speed (fewer epochs but optimized)
+            self.reflex_model.fit(
+                X, y,
+                epochs=5,  # Fast training for quick adaptation
+                batch_size=32,
+                validation_split=0.2,
+                verbose=0
+            )
+            
+            # Save updated model
+            self.reflex_model.save(self.models_dir / 'reflex_model')
+            
+            self.logger.info("Successfully trained reflex model")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error training reflex model: {str(e)}")
+            return False
+    
+    def train_tactical_model(self, training_data: List[Dict[str, Any]]) -> bool:
+        """
+        Train tactical model with strategic decision data
+        
+        Args:
+            training_data: List of tactical decisions with outcomes
+            
+        Returns:
+            Success status
+        """
+        try:
+            if len(training_data) < 50:
+                self.logger.warning("Insufficient training data for tactical model")
+                return False
+            
+            X = []
+            y = []
+            
+            for example in training_data:
+                X.append(example['features'])
+                # Use successful action as label
+                action_label = np.zeros(8)
+                action_label[example['successful_action']] = 1
+                y.append(action_label)
+            
+            X = np.array(X)
+            y = np.array(y)
+            
+            # Train with more epochs for strategic learning
+            self.tactical_model.fit(
+                X, y,
+                epochs=20,
+                batch_size=16,
+                validation_split=0.2,
+                verbose=0
+            )
+            
+            # Save updated model
+            self.tactical_model.save(self.models_dir / 'tactical_model')
+            
+            self.logger.info("Successfully trained tactical model")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error training tactical model: {str(e)}")
+            return False
+    
+    def optimize_for_performance(self) -> Dict[str, Any]:
+        """
+        Optimize ML models for gaming performance (low latency)
+        
+        Returns:
+            Optimization results
+        """
+        optimizations = {
+            'reflex_model_optimized': False,
+            'tactical_model_optimized': False,
+            'average_inference_time_ms': 0.0,
+            'recommendations': []
+        }
+        
+        try:
+            # Test inference times
+            test_input_reflex = np.random.random((1, 8))
+            test_input_tactical = np.random.random((1, 16))
+            
+            # Time reflex model
+            start = time.time()
+            for _ in range(100):
+                self.reflex_model.predict(test_input_reflex, verbose=0)
+            reflex_time = (time.time() - start) / 100
+            
+            # Time tactical model
+            start = time.time()
+            for _ in range(100):
+                self.tactical_model.predict(test_input_tactical, verbose=0)
+            tactical_time = (time.time() - start) / 100
+            
+            avg_time = (reflex_time + tactical_time) / 2
+            optimizations['average_inference_time_ms'] = avg_time * 1000
+            
+            # Check if optimization is needed
+            if reflex_time > 0.01:  # More than 10ms is too slow for gaming
+                optimizations['recommendations'].append(
+                    "Reflex model too slow - consider model quantization"
+                )
+            else:
+                optimizations['reflex_model_optimized'] = True
+            
+            if tactical_time > 0.05:  # Tactical can be slightly slower
+                optimizations['recommendations'].append(
+                    "Tactical model could be optimized further"
+                )
+            else:
+                optimizations['tactical_model_optimized'] = True
+            
+            self.logger.info(f"Performance check: {avg_time*1000:.2f}ms average inference")
+            
+        except Exception as e:
+            self.logger.error(f"Error optimizing for performance: {str(e)}")
+        
+        return optimizations
+

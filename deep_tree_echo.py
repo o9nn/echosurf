@@ -42,7 +42,8 @@ class TreeNode:
             self.spatial_context = SpatialContext()  # Default spatial context
 
 class DeepTreeEcho:
-    def __init__(self, echo_threshold: float = 0.75, max_depth: int = 10, use_julia: bool = True):
+    def __init__(self, echo_threshold: float = 0.75, max_depth: int = 10, use_julia: bool = True,
+                 enable_gaming_mode: bool = False):
         self.logger = logging.getLogger(__name__)
         self.echo_threshold = echo_threshold
         self.max_depth = max_depth
@@ -59,6 +60,18 @@ class DeepTreeEcho:
         self.spatial_influence_factor = 0.15  # How much spatial context affects echo values
         # Virtual environment representation
         self.environment_map = {}  # Map of the virtual environment
+        
+        # Gaming mode integration
+        self.gaming_mode_enabled = enable_gaming_mode
+        self.gamer_persona = None
+        if enable_gaming_mode:
+            try:
+                from gamer_persona import GamerPersona, ReflexMode
+                self.gamer_persona = GamerPersona(name="Echo-Gamer-Girl", reflex_mode=ReflexMode.LIGHTNING)
+                self.logger.info("Gaming mode enabled with gamer-girl persona")
+            except ImportError:
+                self.logger.warning("Gaming mode requested but gamer_persona module not available")
+                self.gaming_mode_enabled = False
         
         try:
             # Try to import the enhanced sensory motor system with 3D capabilities
@@ -744,3 +757,47 @@ class DeepTreeEcho:
             self._collect_all_nodes(child, nodes)
             
         return nodes
+    
+    def train_gaming_skills(self, duration_minutes: int = 30) -> Dict[str, Any]:
+        """
+        Train gaming skills using the gamer persona
+        
+        Args:
+            duration_minutes: Training duration in minutes
+            
+        Returns:
+            Training results
+        """
+        if not self.gaming_mode_enabled or self.gamer_persona is None:
+            self.logger.error("Gaming mode not enabled. Initialize with enable_gaming_mode=True")
+            return {'error': 'Gaming mode not enabled'}
+        
+        try:
+            from gaming_training import quick_train_gamer_persona
+            
+            self.logger.info(f"Starting gaming training for {duration_minutes} minutes")
+            results = quick_train_gamer_persona(duration_minutes)
+            
+            # Update the gamer persona reference
+            self.logger.info("Gaming training completed successfully")
+            return results
+            
+        except ImportError as e:
+            self.logger.error(f"Gaming training module not available: {e}")
+            return {'error': 'Gaming training module not available'}
+        except Exception as e:
+            self.logger.error(f"Error during gaming training: {e}")
+            return {'error': str(e)}
+    
+    def get_gamer_performance(self) -> Dict[str, Any]:
+        """
+        Get current gamer persona performance metrics
+        
+        Returns:
+            Performance summary
+        """
+        if not self.gaming_mode_enabled or self.gamer_persona is None:
+            return {'error': 'Gaming mode not enabled'}
+        
+        return self.gamer_persona.get_performance_summary()
+
