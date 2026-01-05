@@ -1,0 +1,4 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/echosurf_ml_targets.cmake")
+check_required_components(echosurf_ml)
