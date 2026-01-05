@@ -1,0 +1,36 @@
+{
+  "name": "echo-ml",
+  "version": "0.1.0",
+  "description": "Minimal ML Framework for Deep Tree Echo - High-performance C/C++ inference engine",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "install": "node-gyp rebuild",
+    "build": "node-gyp build",
+    "clean": "node-gyp clean",
+    "test": "node tests/test_basic.js"
+  },
+  "keywords": [
+    "ml",
+    "machine-learning",
+    "reservoir-computing",
+    "echo-state-network",
+    "deep-tree-echo",
+    "native",
+    "performance"
+  ],
+  "author": "Deep Tree Echo Project",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/o9nn/echo-ml"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "node-gyp": "^10.0.0"
+  },
+  "gypfile": true
+}

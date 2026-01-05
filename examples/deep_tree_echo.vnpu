@@ -1,0 +1,164 @@
+/**
+ * deep_tree_echo.vnpu - Deep Tree Echo Cognitive Substrate
+ * 
+ * This vNPU IR file defines the cognitive architecture for Deep Tree Echo.
+ * It implements the 12-step cognitive loop with 3 concurrent streams
+ * (μ/σ/φ phases), phased 4 steps apart (120 degrees).
+ * 
+ * The architecture follows the OEIS A000081 nested shells structure:
+ * - 1 nest -> 1 term (root)
+ * - 2 nests -> 2 terms (perception/action)
+ * - 3 nests -> 4 terms (discretion/means/goals/consequence)
+ * - 4 nests -> 9 terms (full cognitive substrate)
+ */
+
+vnpu v1;
+
+/* ============================================================================
+ * DEVICES
+ * ============================================================================ */
+
+device cpu0 {
+    kind = cpu;
+    threads = 4;
+}
+
+device gpu0 {
+    kind = cuda;
+    sm = 80;
+}
+
+/* ============================================================================
+ * TENSORS - The data flowing through the cognitive substrate
+ * ============================================================================ */
+
+/* Input tensors */
+tensor perception_in : f16[1, 128, 256] @cpu0;
+tensor action_in : f16[1, 64, 128] @cpu0;
+
+/* Reservoir state tensors (Echo State Network) */
+tensor reservoir_state : f32[1, 512] @cpu0;
+tensor reservoir_weights : f32[512, 512] @cpu0;
+
+/* Embedding tensors */
+tensor concept_embeddings : f16[8192, 128] @cpu0;
+tensor context_embeddings : f16[4096, 128] @cpu0;
+
+/* Working memory tensors */
+tensor working_memory : f32[1, 1024] @cpu0;
+tensor attention_weights : f32[1, 128] @cpu0;
+
+/* Output tensors */
+tensor intent_out : f16[1, 64] @cpu0;
+tensor evidence_out : f16[1, 128] @cpu0;
+
+/* ============================================================================
+ * KERNELS - The atomic operations
+ * ============================================================================ */
+
+/* Perception phase (μ) */
+kernel k_perceive = echo.reservoir_step(perception_in, reservoir_state, reservoir_weights) -> reservoir_state;
+kernel k_embed = echo.embedding_lookup(perception_in, concept_embeddings) -> working_memory;
+
+/* Action phase (σ) */
+kernel k_attend = echo.attention(working_memory, context_embeddings, attention_weights) -> working_memory;
+kernel k_decide = echo.dense_forward(working_memory) -> intent_out;
+
+/* Simulation phase (φ) */
+kernel k_simulate = rwkv.step(working_memory) -> working_memory;
+kernel k_evaluate = echo.dense_forward(working_memory) -> evidence_out;
+
+/* ============================================================================
+ * GRAPHS - The execution DAGs
+ * ============================================================================ */
+
+/* Perception graph (μ phase) */
+graph g_perception {
+    k_perceive;
+    k_embed;
+}
+
+/* Action graph (σ phase) */
+graph g_action {
+    k_attend;
+    k_decide;
+}
+
+/* Simulation graph (φ phase) */
+graph g_simulation {
+    k_simulate;
+    k_evaluate;
+}
+
+/* Main cognitive loop */
+graph g_cognitive_loop {
+    k_perceive;
+    k_embed;
+    k_attend;
+    k_decide;
+    k_simulate;
+    k_evaluate;
+}
+
+/* ============================================================================
+ * ISOLATES - The actor/processes
+ * ============================================================================ */
+
+/* Inner core - protected computation */
+isolate core {
+    membrane = inner;
+    entry g_cognitive_loop;
+    ports {
+        state_in : Tensor;
+        state_out : Tensor;
+    }
+}
+
+/* Transactional boundary - evidence processing */
+isolate evidence_processor {
+    membrane = trans;
+    entry g_perception;
+    ports {
+        evidence_in : Evidence;
+        evidence_out : Evidence;
+        intent_in : Intent;
+    }
+}
+
+/* Outer interface - world interaction */
+isolate world_interface {
+    membrane = outer;
+    entry g_action;
+    ports {
+        perception_in : Bytes;
+        action_out : Intent;
+        feedback_in : Evidence;
+    }
+}
+
+/* ============================================================================
+ * POLICIES - Access control rules
+ * ============================================================================ */
+
+policy mem {
+    /* Inner membrane: no external tool calls */
+    membrane inner denies toolcall;
+    membrane inner denies external_api;
+    
+    /* Trans membrane: evidence with provenance checks */
+    membrane trans allows evidence when provenance >= 0.7;
+    membrane trans allows intent when confidence >= 0.8;
+    membrane trans denies evidence when provenance < 0.5;
+    
+    /* Outer membrane: budget-limited interactions */
+    membrane outer allows perception when budget.tokens <= 4096;
+    membrane outer allows action when budget.tokens <= 2048;
+}
+
+policy trust {
+    /* Only high-provenance evidence can reach inner membrane */
+    membrane inner allows evidence when provenance >= 0.95;
+    
+    /* Trans membrane acts as filter */
+    membrane trans allows evidence when provenance >= 0.7 and relevance >= 0.5;
+}
